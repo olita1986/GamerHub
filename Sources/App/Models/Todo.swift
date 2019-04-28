@@ -1,26 +1,31 @@
-import FluentSQLite
+import Foundation
 import Vapor
+import MongoKitten
 
-/// A single entry of a Todo list.
-final class Todo: SQLiteModel {
-    /// The unique identifier for this `Todo`.
-    var id: Int?
+final class Todo: Content {
+    var _id:  ObjectId?
+    var name: String
+    var userId: ObjectId
 
-    /// A title describing what this `Todo` entails.
-    var title: String
-
-    /// Creates a new `Todo`.
-    init(id: Int? = nil, title: String) {
-        self.id = id
-        self.title = title
+    init(_id: ObjectId?, name: String, userId: ObjectId) {
+        self._id = _id
+        self.name = name
+        self.userId = userId
     }
 }
 
-/// Allows `Todo` to be used as a dynamic migration.
-extension Todo: Migration { }
+extension Todo: Parameter {
+    public static func resolveParameter(_ parameter: String, on container: Container) throws -> Future<Todo> {
+        let objectId = try ObjectId(parameter)
+        let db = try container.make(MongoKitten.Database.self)
+        let todosCollection = db["todos"]
+        return todosCollection.findOne("_id" == objectId, as: Todo.self).unwrap(or: Abort(.notFound))
+    }
+}
 
-/// Allows `Todo` to be encoded to and decoded from HTTP messages.
-extension Todo: Content { }
-
-/// Allows `Todo` to be used as a dynamic parameter in route definitions.
-extension Todo: Parameter { }
+//extension ObjectId: Parameter {
+//    public static func resolveParameter(_ parameter: String, on container: Container) throws -> ObjectId {
+//        guard let objectId = try? ObjectId(parameter) else { throw Abort(.badRequest)}
+//        return objectId
+//    }
+//}
